@@ -1,0 +1,104 @@
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Game Variables
+let player = { x: 50, y: 200, width: 30, height: 40, vy: 0, gravity: 0.6, jumpForce: -12, grounded: false };
+let obstacles = [];
+let score = 0;
+let obstacleSpeed = 5;
+let spawnTimer = 0;
+let clickTimestamps = [];
+
+// Track Clicks & Trigger Jump
+window.addEventListener("mousedown", () => {
+    // Jump if on the ground
+    if (player.grounded) {
+        player.vy = player.jumpForce;
+        player.grounded = false;
+    }
+    // Log click for CPS tracking
+    clickTimestamps.push(Date.now());
+});
+
+function calculateCPS() {
+    const now = Date.now();
+    // Filter out clicks older than 1 second
+    clickTimestamps = clickTimestamps.filter(time => now - time < 1000);
+    document.getElementById("cps").innerText = clickTimestamps.length.toFixed(1);
+}
+
+function update() {
+    calculateCPS();
+    
+    // Player physics
+    player.vy += player.gravity;
+    player.y += player.vy;
+    
+    // Ground collision
+    if (player.y > 230) {
+        player.y = 230;
+        player.vy = 0;
+        player.grounded = true;
+    }
+
+    // Spawn obstacles
+    spawnTimer++;
+    if (spawnTimer > Math.random() * 60 + 90) {
+        obstacles.push({ x: canvas.width, y: 240, width: 20, height: 30 });
+        spawnTimer = 0;
+    }
+
+    // Move & check obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].x -= obstacleSpeed;
+
+        // Collision detection
+        if (player.x < obstacles[i].x + obstacles[i].width &&
+            player.x + player.width > obstacles[i].x &&
+            player.y < obstacles[i].y + obstacles[i].height &&
+            player.y + player.height > obstacles[i].y) {
+            // Reset game on crash
+            obstacles = [];
+            score = 0;
+            obstacleSpeed = 5;
+        }
+
+        // Score tracking
+        if (obstacles[i] && obstacles[i].x + obstacles[i].width < player.x) {
+            score++;
+            document.getElementById("score").innerText = score;
+            obstacles.splice(i, 1);
+            obstacleSpeed += 0.1; // Speed increases slowly
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Floor Line
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 270);
+    ctx.lineTo(canvas.width, 270);
+    ctx.stroke();
+
+    // Draw Player
+    ctx.fillStyle = "#00ffcc";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    // Draw Obstacles
+    ctx.fillStyle = "#ff0055";
+    obstacles.forEach(obs => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+    });
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
